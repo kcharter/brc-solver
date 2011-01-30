@@ -1,0 +1,18 @@
+name:           brc-solver
+version:        0.0.1
+cabal-version:  >= 1.2 && < 2
+author:         Kevin Charter
+synopsis:       A constraint solver for constraints involving binary
+                relations on a domain.
+build-type:     Simple
+
+library
+  exposed-modules: SetOf, FiniteSet
+  build-depends:   base >= 4 && < 5,
+                   containers >= 0.3 && < 1,
+                   mtl >= 1.0 && < 2
+  ghc-options:     -fwarn-incomplete-patterns
+                   -fwarn-unused-imports
+                   -- -prof -auto-all -caf-all
+                   -funbox-strict-fields
+                   -O2
