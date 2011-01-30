@@ -8,6 +8,7 @@ build-type:     Simple
 
 library
   exposed-modules: BRC.BinRel,
+                   BRC.Constraint,
                    BRC.FiniteSet,
                    BRC.SetOf,
                    BRC.Solver

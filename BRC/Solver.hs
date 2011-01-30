@@ -3,14 +3,8 @@ module BRC.Solver (Relatee(..), Constraint(..), Binding(..), solve) where
 import Data.List (foldl')
 
 import BRC.BinRel
+import BRC.Constraint
 import BRC.SetOf
-
-data Relatee v e =
-  Variable v
-  | Constant e
-    deriving (Eq, Ord, Show)
-             
-data Constraint v e = Related { left, right :: Relatee v e } deriving (Eq, Ord, Show)
 
 data Binding v e = Binding { variable :: v, value :: e } deriving (Eq, Ord, Show)
 
