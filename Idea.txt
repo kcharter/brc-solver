@@ -1,0 +1,160 @@
+Let's suppose that we have some domain D and a binary relation ':>' on
+the elements of D. Consider a constraint satisfaction problem of the
+following form: we have a conjunction of simple constraints of the
+form
+
+<C> ::= <D> :> <D>  ;
+
+<D> ::= <variable> | <constant> ;
+
+Here <D> is either a variable or a constant from D. The goal is to
+find an assignment of values from D to variables such that all the
+primitive constraints are true. A constraint of the form
+
+  C :> C'
+
+where C and C' are values from D is considered true if (C,C') is in
+the relation ':>'.
+
+The 'leftOf' and 'rightOf' functions
+====================================
+
+We define the following functions from D to the power set of D
+
+ leftOf:  D -> 2^D
+ rightOf: D -> 2^D
+
+where
+
+ leftOf(x) = {y in D: y :> x}
+
+and
+
+ rightOf(x) = {y in D: x :> y}
+
+Using 'leftOf' and 'rightOf' to solve single-variable constraints
+=================================================================
+
+Consider a constraint of the form
+
+ x :> A
+
+where 'x' is a variable and 'A' is a value. Notice that an assignment
+of a value
+
+ x -> C
+
+satisfies this constraint only if
+
+ C in leftOf(A)
+
+So we may translate the constraint
+
+ x :> A
+
+into a new constraint
+
+ x in leftOf(A)
+
+Similarly, for a constraint of the form
+
+ A :> x
+
+we see we may translate this to the new form
+
+ x in rightOf(A)
+
+Therefore, if our constraint satisfaction problem has primitive
+constraints which each have either the form
+
+ x :> A
+
+or
+
+ A :> x
+
+then we can translate the constraints into set membership assertions
+involving the constraint variables. The set of possible assignments to
+each variable can then be computed using set intersection. For
+example, given the original constraints
+
+ x :> A
+ x :> B
+ C :> x
+
+we translate to
+
+ x in leftOf(A)
+ x in leftOf(B)
+ x in rightOf(C)
+
+and the set of values we can assign to 'x' to solve the constraints is
+
+ intersection(leftOf(A), leftOf(B), rightOf(C))
+
+Dealing with two-variable constraints
+=====================================
+
+In general, we have to deal with constraints of the form
+
+  x :> y
+
+where 'x' and 'y' are both variables. Let's imagine a constraint
+problem that has several one-variable constraints and just this one
+two-variable constraint. The set of variables is {x, y, z1, ..., zk}.
+
+Let's suppose that for the single-variable constraints we find sets
+S[x], S[y], S[z1], ..., S[zk] of satisfying assignments for the
+variables. For a variable 'v' that doesn't appear in any
+single-variable constraints, we use S[v] = D, since 'v' is
+unconstrained.
+
+We can represent the set of assignments that satisfy the
+single-variable constraints as the Cartesian product
+
+ S[x] * S[y] * S[z1] * ... * S[zk]
+
+Let T[:>] be the ordered pairs in the relation ':>'. To also satisfy
+the two-variable constraint
+
+ x :> y
+
+we must discard every tuple in the Cartesian product whose projection
+on 'x' and 'y' is not in T[:>].
+
+If there are other two-variable constraints
+
+ v :> w
+
+we iterate the process, removing those tuples whose projection on 'v'
+and 'w' is not in T[:>]. When we've performed this filtering for each
+two-variable constraint, we're left with the satisfying tuples for the
+entire set of constraints.
+
+Enumerating the satisfying assignments
+======================================
+
+Suppose we've got a constraint problem on 'n' variables
+
+ {v1, ..., vn}.
+
+As we've seen, from the set of single-variable constraints we can
+compute a collection of corresponding subsets of D
+
+ S[v1], ..., S[vn]
+
+whose Cartesian product is the set of satisfying assignments for just
+the single-variable constraints.
+
+Taking a brute force approach by computing the entire Cartesian
+product and then filtering it based on the two-variable constraints
+would be silly unless the domain D is very small. But, provided we can
+lazily enumerate the elements of the sets S[v], we can define a
+procedure for lazily enumerating the satisfying variable assignments.
+
+We'll assume that there is function
+
+ elements: 2^D -> [D]
+
+which takes a subet of D and produces a lazy (and possibly infinite)
+list of the elements of the set.
