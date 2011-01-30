@@ -1,2 +1,7 @@
 *~
 dist
+tests/.hpc
+tests/build
+tests/tmp
+tests/runtests
+tests/*.tix
