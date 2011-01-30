@@ -7,7 +7,9 @@ synopsis:       A constraint solver for constraints involving binary
 build-type:     Simple
 
 library
-  exposed-modules: BRC.SetOf, BRC.FiniteSet
+  exposed-modules: BRC.BinRel,
+                   BRC.FiniteSet,
+                   BRC.SetOf
   build-depends:   base >= 4 && < 5,
                    containers >= 0.3 && < 1,
                    mtl >= 1.0 && < 2
