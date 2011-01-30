@@ -1,8 +1,12 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
+{-|
+
+A representation of binary relations as pairs of left-image and
+right-image functions. -}
+
 module BRC.BinRel where
 
-{-^ A representation of binary relations as pairs of functions. -}
 
 import BRC.SetOf (SetOf)
 
