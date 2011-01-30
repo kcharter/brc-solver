@@ -9,7 +9,8 @@ build-type:     Simple
 library
   exposed-modules: BRC.BinRel,
                    BRC.FiniteSet,
-                   BRC.SetOf
+                   BRC.SetOf,
+                   BRC.Solver
   build-depends:   base >= 4 && < 5,
                    containers >= 0.3 && < 1,
                    mtl >= 1.0 && < 2
