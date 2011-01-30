@@ -3,7 +3,7 @@ module Main where
 import Control.Monad (liftM)
 import Test.QuickCheck
 
-import qualified FiniteSet as FS
+import qualified BRC.FiniteSet as FS
 
 import SetOfProps (runAll)
 

@@ -1,10 +1,10 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 
-module FiniteSet (Set, fromList) where
+module BRC.FiniteSet (Set, fromList) where
 
 import qualified Data.Set as DS
 
-import SetOf
+import BRC.SetOf
 
 newtype Set a = Set (DS.Set a) deriving (Eq, Ord, Show)
 

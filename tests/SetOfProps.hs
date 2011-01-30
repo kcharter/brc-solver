@@ -5,7 +5,7 @@ module SetOfProps where
 import Control.Monad (liftM2)
 import Test.QuickCheck hiding (elements)
 
-import SetOf
+import BRC.SetOf
 
 runAll :: forall e . forall s . (Show e, Show s, Eq e, SetOf e s) => Gen e -> Gen s -> IO ()
 runAll ge gs =

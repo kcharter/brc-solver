@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
 
-module SetOf where
+module BRC.SetOf where
 
 class SetOf e s | s -> e where
   univ :: s
