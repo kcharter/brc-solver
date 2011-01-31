@@ -3,10 +3,11 @@ module BRC.Solver (Relatee(..), Constraint(..), Binding(..), solve) where
 import BRC.BinRel
 import BRC.Constraint
 import BRC.SetOf
+import BRC.Solver.Error (SolverError)
 
 data Binding v e = Binding { variable :: v, value :: e } deriving (Eq, Ord, Show)
 
-solve :: (Ord v, SetOf e s) => BinRel e s -> [Constraint v e] -> [[Binding v e]]
+solve :: (Ord v, SetOf e s) => BinRel e s -> [Constraint v e] -> Either SolverError [[Binding v e]]
 solve = error "not implemented"
 
 -- internal state/error monad for the solver (so we can return an error message)
