@@ -1,22 +1,32 @@
 module BRC.Solver (Relatee(..), Constraint(..), Binding(..), solve) where
 
+import Control.Monad (unless)
+
 import BRC.BinRel
 import BRC.Constraint
 import BRC.SetOf
 import BRC.Solver.Error
 import BRC.Solver.Monad
+import BRC.Solver.ZeroOneTwo
 
 data Binding v e = Binding { variable :: v, value :: e } deriving (Eq, Ord, Show)
 
-solve :: (Ord v, SetOf e s) => BinRel e s -> [Constraint v e] -> Either SolverError [[Binding v e]]
+solve :: (Ord v, SetOf e s, Show v, Show e) =>
+         BinRel e s -> [Constraint v e] -> Either SolverError [[Binding v e]]
 solve rel constraints =
   runOn constraints $ do
     ruleOutZeroVarContradictions rel
     applyOneVarConstraints rel
     enumerateAssignments rel
 
-ruleOutZeroVarContradictions :: SetOf e s => BinRel e s -> SolverMonad v e s ()
-ruleOutZeroVarContradictions rel = return () -- TODO: really implement
+ruleOutZeroVarContradictions :: (Show v, Show e, SetOf e s) =>
+                                BinRel e s -> SolverMonad v e s ()
+ruleOutZeroVarContradictions rel =
+  mapM_ checkForContradiction =<< getZeros
+  where checkForContradiction c@(ZeroVar x y) =
+          unless (contains rel x y) $ solverError (
+            "Constraint " ++ show (toConstraint c) ++
+            " is a contradiction.")
 
 applyOneVarConstraints :: SetOf e s => BinRel e s -> SolverMonad v e s ()
 applyOneVarConstraints rel = return () -- TODO: really implement
