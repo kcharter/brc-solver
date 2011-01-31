@@ -37,20 +37,21 @@ applyOneVarConstraints rel =
   where refineOneVar history c =
           do let (v, s) = varAndSet c
              modifyPossibleAssignmentsFor v (intersection s)
-             checkForEmpty v
-             return $ recordConstraint v
+             let history' = recordConstraint v history
+             checkForEmpty v history'
+             return history'
             where varAndSet (OnLeft v x) = (v, leftOf rel x)
                   varAndSet (OnRight x v) = (v, rightOf rel x)
-                  checkForEmpty v =
+                  checkForEmpty v history =
                     getPossibleAssignmentsFor v >>= \s ->
                     when (s `sameAs` empty) (
                       solverError ("Constraints " ++
-                                   showConstraints (c:constraintsSoFar v) ++
+                                   showConstraints (constraintsSoFar v history) ++
                                    " are unsatisfiable."))
-                  recordConstraint v =
+                  recordConstraint v history =
                     DM.alter (maybe (Just [c]) (Just . (c:))) v history
-                  constraintsSoFar v =
-                    maybe [] id (DM.lookup v history)
+                  constraintsSoFar v history =
+                    maybe [] reverse (DM.lookup v history)
                   showConstraints = intercalate ", " . map (show . toConstraint)
 
 enumerateAssignments :: SetOf e s => BinRel e s -> SolverMonad v e s [[Binding v e]]
