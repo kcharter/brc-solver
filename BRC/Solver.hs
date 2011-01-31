@@ -1,6 +1,8 @@
 module BRC.Solver (Relatee(..), Constraint(..), Binding(..), solve) where
 
-import Control.Monad (unless)
+import Control.Monad (unless, when, foldM)
+import Data.List (intercalate)
+import qualified Data.Map as DM
 
 import BRC.BinRel
 import BRC.Constraint
@@ -28,8 +30,28 @@ ruleOutZeroVarContradictions rel =
             "Constraint " ++ show (toConstraint c) ++
             " is a contradiction.")
 
-applyOneVarConstraints :: SetOf e s => BinRel e s -> SolverMonad v e s ()
-applyOneVarConstraints rel = return () -- TODO: really implement
+applyOneVarConstraints :: (Show v, Show e, Ord v, SetOf e s) =>
+                          BinRel e s -> SolverMonad v e s ()
+applyOneVarConstraints rel =
+  getOnes >>= foldM refineOneVar DM.empty >> return ()
+  where refineOneVar history c =
+          do let (v, s) = varAndSet c
+             modifyPossibleAssignmentsFor v (intersection s)
+             checkForEmpty v
+             return $ recordConstraint v
+            where varAndSet (OnLeft v x) = (v, leftOf rel x)
+                  varAndSet (OnRight x v) = (v, rightOf rel x)
+                  checkForEmpty v =
+                    getPossibleAssignmentsFor v >>= \s ->
+                    when (s `sameAs` empty) (
+                      solverError ("Constraints " ++
+                                   showConstraints (c:constraintsSoFar v) ++
+                                   " are unsatisfiable."))
+                  recordConstraint v =
+                    DM.alter (maybe (Just [c]) (Just . (c:))) v history
+                  constraintsSoFar v =
+                    maybe [] id (DM.lookup v history)
+                  showConstraints = intercalate ", " . map (show . toConstraint)
 
 enumerateAssignments :: SetOf e s => BinRel e s -> SolverMonad v e s [[Binding v e]]
 enumerateAssignments rel = return [] -- TODO: really implement
