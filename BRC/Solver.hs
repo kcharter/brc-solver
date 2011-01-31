@@ -3,12 +3,26 @@ module BRC.Solver (Relatee(..), Constraint(..), Binding(..), solve) where
 import BRC.BinRel
 import BRC.Constraint
 import BRC.SetOf
-import BRC.Solver.Error (SolverError)
+import BRC.Solver.Error
+import BRC.Solver.Monad
 
 data Binding v e = Binding { variable :: v, value :: e } deriving (Eq, Ord, Show)
 
 solve :: (Ord v, SetOf e s) => BinRel e s -> [Constraint v e] -> Either SolverError [[Binding v e]]
-solve = error "not implemented"
+solve rel constraints =
+  runOn constraints $ do
+    ruleOutZeroVarContradictions rel
+    applyOneVarConstraints rel
+    enumerateAssignments rel
+
+ruleOutZeroVarContradictions :: SetOf e s => BinRel e s -> SolverMonad v e s ()
+ruleOutZeroVarContradictions rel = return () -- TODO: really implement
+
+applyOneVarConstraints :: SetOf e s => BinRel e s -> SolverMonad v e s ()
+applyOneVarConstraints rel = return () -- TODO: really implement
+
+enumerateAssignments :: SetOf e s => BinRel e s -> SolverMonad v e s [[Binding v e]]
+enumerateAssignments rel = return [] -- TODO: really implement
 
 -- internal state/error monad for the solver (so we can return an error message)
 -- split constraints into three simpler constraint types: zero-variable, one-variable, two-variable
