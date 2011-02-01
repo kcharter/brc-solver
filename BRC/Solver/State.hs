@@ -5,7 +5,7 @@
 The internal state maintained by the solver. -}
 
 module BRC.Solver.State (SolverState,
-                         zeros, ones, twos,
+                         zeros, ones, twos, setsByVar,
                          initialState,
                          getSetFor,
                          putSetFor,
