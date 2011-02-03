@@ -144,7 +144,7 @@ nextAssignment p =
 
 -- | Builds an assignment from the current bound variables.
 assignment :: PartialAssignment v e u -> [(v,e)]
-assignment = map (\b -> (variable b, value b)) . boundVars
+assignment = reverse . map (\b -> (variable b, value b)) . boundVars
   
 
 -- | Pushes a new bound variable. The bound variable records the
