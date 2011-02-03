@@ -48,17 +48,17 @@ cartesian = assignments nextVar noEffect
 -- | Computes all combinations of variable assignments that pass a list
 -- of binary predicates.
 subjectTo :: Ord v => [((v,v), e -> e -> Bool)] -> [(v, [e])] -> [[(v,e)]]
-subjectTo conditions = assignments nextVar filterEffects
+subjectTo conditions = assignments nextVar filterOthers
   where nextVar [] = Done
         nextVar p@((v, es):rest) =
           if any null $ map snd p
           then DeadEnd
           else NextVar v (head es) (tail es) rest
-        filterEffects v e =
+        filterOthers v e =
           let doFilter (w, es) =
                 let f1 = maybe pass ($e) $ pred (v,w)
                     f2 = maybe pass (($e) . flip) $ pred (v,w)
-                    f = if v == w then f1 else \e' -> f1 e' && f2 e'
+                    f e = f1 e && f2 e
                     pass = const True
                 in (w, filter f es)
           in map doFilter
