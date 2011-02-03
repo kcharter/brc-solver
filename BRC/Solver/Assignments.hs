@@ -55,14 +55,14 @@ subjectTo conditions = assignments nextVar filterEffects
           then DeadEnd
           else NextVar v (head es) (tail es) rest
         filterEffects v e =
-          let conditionMap = DM.fromList conditions
-              doFilter (w, es) =
-                let f1 = maybe pass ($e) $ DM.lookup (v,w) conditionMap
-                    f2 = maybe pass (($e) . flip) $ DM.lookup (w,v) conditionMap
+          let doFilter (w, es) =
+                let f1 = maybe pass ($e) $ pred (v,w)
+                    f2 = maybe pass (($e) . flip) $ pred (v,w)
                     f = if v == w then f1 else \e' -> f1 e' && f2 e'
                     pass = const True
                 in (w, filter f es)
           in map doFilter
+        pred = flip DM.lookup (DM.fromList conditions)
   
 
 -- | The result of splitting a variable out of the current unbound
