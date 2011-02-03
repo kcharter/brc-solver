@@ -54,8 +54,8 @@ cartesian = assignments nextVar noEffect
 subjectTo :: Ord v => [((v,v), e -> e -> Bool)] -> [(v, [e])] -> [[(v,e)]]
 subjectTo conditions = assignments nextVar filterOthers
   where nextVar [] = Done
-        nextVar p@((v, es):rest) =
-          if any null $ map snd p
+        nextVar unbounds@((v, es):rest) =
+          if any null $ map snd unbounds
           then DeadEnd
           else if null (filterSelf v es)
                then DeadEnd
