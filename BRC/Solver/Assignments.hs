@@ -45,12 +45,52 @@ cartesian = assignments nextVar noEffect
           else NextVar v (head es) (tail es) rest
         noEffect _ _ u = u
 
--- | Computes all combinations of variable assignments that pass a list
--- of binary predicates.
+-- | Computes all combinations of variable assignments that pass a
+-- list of binary predicates. The predicates are used to build the
+-- input functions for 'assignments'.
 --
 -- A predicate is represented by a pair of variables and a binary
--- function on values. It's allowed to have a predicate where the same
--- variable is used twice.
+-- function on values. Most predicates are on distinct variables, and
+-- are used to filter the possible values for unbound variables when
+-- one of the variables is given a trial binding. For example
+--
+-- @((\"x\",\"y\"), (<))@
+--        
+-- is a predicate saying that the value of variable @\"x\"@ must be less
+-- that the value of variable @\"y\"@. If @\"x\"@ is given a trial value,
+-- the predicate function filters the allowed values for @\"y\"@, and
+-- vice-versa.
+--
+-- You can have a predicate that uses the same variable twice. Such
+-- predicates are taken into account in the 'nextVar' function, so
+-- it's a slightly awkward way to inject a filter on a single
+-- variable. For example
+--
+-- @((\"x\",\"x\"), const even)@
+--
+-- ensures that every allowed value of @\"x\"@ is even. Of course, you
+-- can achieve the same thing more directly by simply filtering the
+-- initial values for @\"x\"@
+--
+-- @[ ..., (\"x\", filter even [1..1000]), ... ]@
+--
+-- You can use unbounded lists of possible values, but it's easy to
+-- get a non-terminating search if you're not careful with the
+-- conditions. For example,
+--
+-- @take 1 $ subjectTo [(\"x\", \"y\"), (<)] [(\"x\", [1..]), (\"y\", [1..])]@
+--
+-- prints
+--
+-- @[[(\"x\",1),(\"y\",2)]]@
+--
+-- but the similar search
+--
+-- @take 1 $ subjectTo [(\"x\", \"y\"), (>)] [(\"x\", [1..]), (\"y\", [1..])]@
+--
+-- does not terminate, because the search assigns @1@ to @\"x\"@ and
+-- then attempts to check all possible values of @\"y\"@ before
+-- assigning @2@ to @\"x\"@.
 subjectTo :: Ord v => [((v,v), e -> e -> Bool)] -> [(v, [e])] -> [[(v,e)]]
 subjectTo conditions = assignments nextVar filterOthers
   where nextVar [] = Done
