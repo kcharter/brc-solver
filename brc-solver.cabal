@@ -12,6 +12,7 @@ library
                    BRC.FiniteSet,
                    BRC.SetOf,
                    BRC.Solver,
+                   BRC.Solver.Assignments,
                    BRC.Solver.Error,
                    BRC.Solver.Monad,
                    BRC.Solver.State,

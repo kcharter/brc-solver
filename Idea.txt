@@ -92,69 +92,254 @@ and the set of values we can assign to 'x' to solve the constraints is
 
  intersection(leftOf(A), leftOf(B), rightOf(C))
 
+Singleton S[v]
+--------------
+
+After computing the sets S[v], we may find that some of them are
+singleton sets. For each such set, we
+
+- extract its single value 'c'
+
+- split out the two-variable constraints involving 'v', and transform
+  them by subtituting 'c' for 'v'. This yields
+
+  - possibly the zero-variable constraint
+
+      c :> c
+
+  - a possibly-empty set of constraints of the form
+
+      c :> w    or    w :> c
+
+  For the first, we check whether 'c :> c' is a contradiction.
+
+  For the second, we use the new single variable constraints to
+  further refine the sets S[w].
+
+Obviously, this may yield further singleton sets S[v]. We iterate
+until either there are no further singleton sets, or the set of
+two-variable constraints is exhausted.
+
 Dealing with two-variable constraints
 =====================================
 
-In general, we have to deal with constraints of the form
+Suppose the set of variables involved in one-variable and two-variable
+constraints is
 
-  x :> y
+ {v1, ..., vn}
 
-where 'x' and 'y' are both variables. Let's imagine a constraint
-problem that has several one-variable constraints and just this one
-two-variable constraint. The set of variables is {x, y, z1, ..., zk}.
-
-Let's suppose that for the single-variable constraints we find sets
-S[x], S[y], S[z1], ..., S[zk] of satisfying assignments for the
-variables. For a variable 'v' that doesn't appear in any
-single-variable constraints, we use S[v] = D, since 'v' is
-unconstrained.
-
-We can represent the set of assignments that satisfy the
-single-variable constraints as the Cartesian product
-
- S[x] * S[y] * S[z1] * ... * S[zk]
-
-Let T[:>] be the ordered pairs in the relation ':>'. To also satisfy
-the two-variable constraint
-
- x :> y
-
-we must discard every tuple in the Cartesian product whose projection
-on 'x' and 'y' is not in T[:>].
-
-If there are other two-variable constraints
-
- v :> w
-
-we iterate the process, removing those tuples whose projection on 'v'
-and 'w' is not in T[:>]. When we've performed this filtering for each
-two-variable constraint, we're left with the satisfying tuples for the
-entire set of constraints.
-
-Enumerating the satisfying assignments
-======================================
-
-Suppose we've got a constraint problem on 'n' variables
-
- {v1, ..., vn}.
-
-As we've seen, from the set of single-variable constraints we can
-compute a collection of corresponding subsets of D
+After processing the one-variable constraints, we have sets
 
  S[v1], ..., S[vn]
 
-whose Cartesian product is the set of satisfying assignments for just
-the single-variable constraints.
+of possible values for the variables. The satisfying assignments must
+be a subset of the Cartesian product
 
-Taking a brute force approach by computing the entire Cartesian
-product and then filtering it based on the two-variable constraints
-would be silly unless the domain D is very small. But, provided we can
-lazily enumerate the elements of the sets S[v], we can define a
-procedure for lazily enumerating the satisfying variable assignments.
+ S[v1] * ... * S[vn]
 
-We'll assume that there is function
+If there are no two-variable constraints, then the set of all
+satisfying assignments is exactly this Cartesian product. We'll assume
+that the domain D allows us to lazily enumerate the elements of this
+product. For example, either D is finite, or there is some order we
+can impose on its elements so that each S[vi] can itself be lazily
+enumerated, even if it is infinite.
 
- elements: 2^D -> [D]
+So suppose that there are two-variable constraints. One obvious
+brute-force approach to enumerating the satisfying assignments subject
+to these constraints is to enumerate and filter the above Cartesian
+product. For each tuple
 
-which takes a subet of D and produces a lazy (and possibly infinite)
-list of the elements of the set.
+ (v1 -> c1, ..., vn -> cn)
+
+in the product, test whether all the two-variable constraints are
+satisfied. If they are, the tuple passes the filter; if they are not,
+we move on to the next tuple.
+
+Note that if D is infinite, and the problem has no satisfying
+assignments, then it's possible that this search will not
+terminate. For the moment, assume that there is a satisfying
+assignment, and our goal is to find the first such assignment.
+
+We may blindly enumerate a very large part of the product before
+finding a first satisfying assignment. We'd like to prune away the
+parts of the search space that are likely to be a problem.
+
+First, observe that if a variable 'vi' does not appear in a
+two-variable constraint, then we can pick any element of S[vi] for a
+satisfying assignment. In fact, we can split {v1,...,vn} into sets U
+and V of variables
+
+  U = {u1, ..., um} = { vi: vi appears in no two-variable constraints }
+  W = {w1, ..., wp} = { vi: vi appears in some two-variable constraint }
+
+The variables U are not further constrained, so every element of the
+product
+
+  P[U] = S[u1] * ... * S[um]
+
+can be freely used in a satisfying assignment.
+
+Now, the variables in W have constraints between them. If there is a
+constraint
+
+ w1 :> w2   or   w2 :> w1
+
+then if we select a value for w1
+
+ w1 -> c1 in S[w1]
+
+then it limits the possible values for w2 to
+
+ intersection(rightOf(c1), S[w2])  if  w1 :> w2
+
+or
+
+ intersection(S[w2], leftOf(c1))   if  w2 :> w1
+
+Now, suppose that w2 is in turn related to w3, but w1 is not directly
+related to w3. The tentative assignment of c1 to w1 still influences
+the allowed assignments to w3, since it directly restricts the allowed
+assignments to w2.
+
+Consider the binary relation 'constrains' on W:
+
+ wi constrains wj  iff  either wi :> wj  or wj :> wi
+                        appears in the two-variable constraints
+
+By its definition, 'constrains' is symmetric. We define the binary
+relation 'influences' on W as the reflexive transitive closure of
+'constrains'. By construction, 'influences' is an equivalence
+relation.
+
+Let
+
+ INFLUENCES: W -> 2^W
+
+be the function that takes a variable in W to its equivalence class
+under 'influences'. The assigment w1 -> c1 can influence the allowed
+assignments to the variables other than w1 in INFLUENCES(w1). However,
+the assignment w1 -> c1 does not restrict the allowed assignments to
+variables in other equivalence classes.
+
+Therefore, we split W into its distinct equivalence of 'influences'
+
+ I1, ..., Ic
+
+and we can treat each class Ii separately.
+
+Another way of looking at the problem is to consider the undirected
+graph whose nodes are the variables in V = {v1, ... vn}, and there is
+an edge (vi, vj) if and only if
+
+ vi :> vj   or   vj :> vi
+
+The equivalence classes of 'influences' are the connected components
+of this graph. The singleton connected components are the
+unconstrained variables. Each of the remaining connected components
+contain two or more variables whose values may influence one
+another. Distinct connected components have no influence on each
+other.
+
+Therefore, our problem becomes one of enumerating the satisfying
+assignments for each of these connected components.
+
+For a singleton component {vi}, the enumeration is trivial: enumerate
+S[vi].
+
+Satisfying assignments for non-singleton influence classes
+----------------------------------------------------------
+
+For a non-singleton component, we could use the brute-force approach
+of enumerating all tuples and rejecting ones that contradict the
+constraints. However, this could still lead to a large amount of
+fruitless search. For example, consider the domain of integers between
+0 and 10000, inclusive, and the following constraints
+
+ x > 9998
+ y > x
+
+This has only one solution,
+
+ {x -> 9999, y -> 10000}
+
+Now, after single-variable constraint processing, we have
+
+ S[x] = {9999, 10000}
+ S[y] = {0, ..., 10000}
+
+If S[x] and S[y] are enumerated from least to greatest, we will try
+and reject the 10000 tuples where 'y' is between 0 and 9999 before
+finding the one satisfying tuple.
+
+Now, suppose we started off by picking the value 9999 for
+'x'. Substituting 9999 for 'x' in the constraint 'y > x' gives us
+
+ y > 9999
+
+Therefore, when 'x' is 9999,  we must have
+
+ y in leftOf[>](9999) = {10000}
+
+Therefore, we can refine S[y] to
+
+ S[y]' = intersection(S[y], leftOf[>](9999))
+       = {10000}
+
+Now, we enumerate the elements of S[y]' instead of S[y], and
+immediately obtain the satisfying assignment
+
+ { x -> 9999, y -> 10000 }
+
+There are no further elements in S[y]', so we
+
+- restore S[y] as the set of possible assignments for 'y'
+
+- advance 'x' to the next of its possible assignments, 10000
+
+When 'x' is 10000, we must also have
+
+ y > 10000  implies y in leftOf[>](10000)
+            implies y in {}
+
+Therefore, the set of possible assignments for 'y' is refined to
+
+ S[y]' = intersection(S[y], leftOf[>](10000))
+       = intersection(S[y], {})
+       = {}
+
+The set of possible assignments for 'y' is now exhausted, so we
+
+- restore S[y] as the set of possible assignments for 'y'
+
+- discover that the possible assignments of 'x' are now exhausted
+
+and we're done.
+
+There are three things to note here:
+
+1. once we assign a trial value to a variable 'v', for each
+   two-variable constraint
+
+     v :> w   or   w :> v
+
+   we can compute a refined set of assignments for 'w'
+
+     S[w]' = intersection(S[w], rightOf(v)) or
+             intersection(S[w], leftOf(v))
+
+2. when we finish with a trial assignment to a variable 'v', we must
+   restore the original S[w] for each 'w' for which we computed a
+   refinement S[w]'
+
+3. it was important that we chose to enumerate the possible values for
+   'x' first. We could have iterated over 'y' first. For a trial
+   assignment (y -> c), we would refine S[x] to
+
+     S[x]' = intersection(S[x], rightOf[>](c))
+   
+   But if the iteration were increasing from 0, we would have tested c
+   = 0, ..., 9999 and found that in each case S[x]' is empty.
+
+   When we choose a variable on which to do trial assignments, we
+   should prefer the variable 'v' with the smallest S[v].
+
