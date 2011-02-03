@@ -47,21 +47,29 @@ cartesian = assignments nextVar noEffect
 
 -- | Computes all combinations of variable assignments that pass a list
 -- of binary predicates.
+--
+-- A predicate is represented by a pair of variables and a binary
+-- function on values. It's allowed to have a predicate where the same
+-- variable is used twice.
 subjectTo :: Ord v => [((v,v), e -> e -> Bool)] -> [(v, [e])] -> [[(v,e)]]
 subjectTo conditions = assignments nextVar filterOthers
   where nextVar [] = Done
         nextVar p@((v, es):rest) =
           if any null $ map snd p
           then DeadEnd
-          else NextVar v (head es) (tail es) rest
+          else if null (filterSelf v es)
+               then DeadEnd
+               else NextVar v (head es) (tail es) rest
         filterOthers v e =
           let doFilter (w, es) =
                 let f1 = maybe pass ($e) $ pred (v,w)
-                    f2 = maybe pass (($e) . flip) $ pred (v,w)
+                    f2 = maybe pass (($e) . flip) $ pred (w,v)
                     f e = f1 e && f2 e
                     pass = const True
                 in (w, filter f es)
           in map doFilter
+        filterSelf v es =
+          maybe es (\p -> filter (\x -> p x x) es) $ pred (v,v)
         pred = flip DM.lookup (DM.fromList conditions)
   
 
