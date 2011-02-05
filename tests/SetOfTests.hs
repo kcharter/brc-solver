@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module SetOfProps where
+module SetOfTests where
 
 import Control.Monad (liftM2)
 import Test.QuickCheck hiding (elements)
