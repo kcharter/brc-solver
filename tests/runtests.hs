@@ -8,11 +8,13 @@ import BRC.Constraint (Constraint)
 
 import qualified SetOfTests as SoT
 import qualified ZeroOneTwoTests as ZOTT
+import qualified AssignmentTests as AT
 import Variable
 
 main :: IO ()
 main = do SoT.runAll (arbitrary :: Gen Five) (arbitrary :: Gen (FS.Set Five))
           ZOTT.runAll (arbitrary :: Gen (Constraint Variable Five))
+          AT.runAll (arbitrary :: Gen Five)
 
 data Five = One | Two | Three | Four | Five deriving (Eq, Ord, Enum, Bounded, Show)
 
