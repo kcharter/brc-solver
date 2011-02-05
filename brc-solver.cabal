@@ -5,6 +5,8 @@ author:         Kevin Charter
 synopsis:       A constraint solver for constraints involving binary
                 relations on a domain.
 build-type:     Simple
+license:        BSD3
+license-file:   LICENSE
 
 library
   exposed-modules: BRC.BinRel,
