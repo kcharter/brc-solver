@@ -5,10 +5,13 @@ constraints. The search does all the necessary book-keeping to
 backrack when it reaches a dead end. -}
 
 module BRC.Solver.Assignments (assignments,
+                               SearchOptions(..),
+                               defaultSearchOptions,
                                NextVar(..),
                                cartesian,
                                subjectTo) where
 
+import Control.Arrow (second)
 import qualified Data.Map as DM
 
 -- | Computes the list of all satisfying assignments to a set of
@@ -27,17 +30,17 @@ import qualified Data.Map as DM
 -- assignments, compute their effects on the remaining unbound
 -- variables, and maintain the state necessary to back-track out of
 -- dead-ends in the search.
-assignments :: (u -> NextVar v e u) -> (v -> e -> u -> u) -> u -> [[(v,e)]]
-assignments nextVar effectOfBinding unboundVars =
-  doAssignments $ initial nextVar effectOfBinding unboundVars
+assignments :: SearchOptions -> (u -> NextVar v e u) -> (v -> e -> u -> u) -> u -> [[(v,e)]]
+assignments opts nextVar effectOfBinding unboundVars =
+  doAssignments $ initial opts nextVar effectOfBinding unboundVars
   where doAssignments p =
           maybe [] (\(a, mp) -> a:maybe [] doAssignments mp) $ nextAssignment p
           
 -- | Computes the Cartesian product from a list of possible input
 -- bindings, using 'assignments'. This is mostly meant for testing
 -- purposes.
-cartesian :: [(v, [e])] -> [[(v, e)]]
-cartesian = assignments nextVar noEffect
+cartesian :: SearchOptions -> [(v, [e])] -> [[(v, e)]]
+cartesian opts = assignments opts nextVar noEffect
   where nextVar [] = Done
         nextVar p@((v, es):rest) =
           if any null $ map snd p
@@ -74,28 +77,38 @@ cartesian = assignments nextVar noEffect
 --
 -- @[ ..., (\"x\", filter even [1..1000]), ... ]@
 --
--- You can use unbounded lists of possible values, but it's easy to
--- get a non-terminating search if you're not careful with the
--- conditions. For example,
+-- You can use unbounded lists of possible values, but the search
+-- limits the lists using
 --
--- @take 1 $ subjectTo [(\"x\", \"y\"), (<)] [(\"x\", [1..]), (\"y\", [1..])]@
+-- @take ('maxTrialsPerVariable' 'opts')@
 --
--- prints
+-- This avoids non-termination when the filters built from the input
+-- predicates are unsatisfiable. For example, consider
 --
--- @[[(\"x\",1),(\"y\",2)]]@
+-- @
+-- let opts = SearchOptions 2
+-- in subjectTo opts [((\"x\",\"y\"), (>))] [(\"x\", [1,2]), (\"y\", [1..])]
+-- @
 --
--- but the similar search
+-- If we don't limit the possible values of @\"y\"@, then after
+-- tentatively assigning @1@ to @\"x\"@ the filtered values for
+-- @\"y\"@ are
 --
--- @take 1 $ subjectTo [(\"x\", \"y\"), (>)] [(\"x\", [1..]), (\"y\", [1..])]@
+-- @filter (1 >) [1..]@
 --
--- does not terminate, because the search assigns @1@ to @\"x\"@ and
--- then attempts to check all possible values of @\"y\"@ before
--- assigning @2@ to @\"x\"@.
-subjectTo :: Ord v => [((v,v), e -> e -> Bool)] -> [(v, [e])] -> [[(v,e)]]
-subjectTo conditions = assignments nextVar filterOthers
-  where nextVar [] = Done
+-- and any attempt to test for an empty list or extract a value will
+-- not terminate.
+subjectTo :: Ord v => SearchOptions -> [((v,v), e -> e -> Bool)] -> [(v, [e])] -> [[(v,e)]]
+subjectTo opts conditions unbounds = assignments opts nextVar filterOthers unbounds'
+  where unbounds' = map (limit `second`) unbounds
+        limit = take (maxTrialsPerVariable opts)
+        -- we limit the unbound variables because our filter
+        -- predicates could be unsatisfiable for a given trial
+        -- binding; filtering an unbounded list with an unsatisfiable
+        -- predicate doesn't terminate
+        nextVar [] = Done
         nextVar unbounds@((v, es):rest) =
-          if any null $ map snd unbounds
+          if any (null . limit) $ map snd unbounds
           then DeadEnd
           else if null (filterSelf v es)
                then DeadEnd
@@ -111,7 +124,21 @@ subjectTo conditions = assignments nextVar filterOthers
         filterSelf v es =
           maybe es (\p -> filter (\x -> p x x) es) $ pred (v,v)
         pred = flip DM.lookup (DM.fromList conditions)
-  
+
+-- | Control knobs for the search.
+data SearchOptions =
+  SearchOptions {
+    maxTrialsPerVariable :: Int
+    -- ^ The maximum number of trial bindings to make to any one
+    -- variable before declaring a dead-end. This is a safeguard to
+    -- prevent bottomless searches. If you find no solutions to a
+    -- problem, try increasing this.
+    }
+
+-- | A default set of search options. This limits the maximum trials
+-- per variable to @100@.
+defaultSearchOptions :: SearchOptions
+defaultSearchOptions = SearchOptions { maxTrialsPerVariable = 100 }
 
 -- | The result of splitting a variable out of the current unbound
 -- variables, in order to bind it.
@@ -122,13 +149,20 @@ data NextVar v e u =
   Done |
   -- ^ There are no more unbound variables.
   NextVar v e [e] u
-  -- ^ An unbound variable, its first trial value, a list of other
-  -- trial values, and the remaining unbound variables.
+  -- ^ An unbound variable, its first trial value, a list of remaining
+  -- trial values, and the remaining unbound variables. The list of
+  -- remaining trial values may be unbounded; the only requirement is that
+  --
+  -- @take n@
+  --
+  -- must terminate when applied to the list.
   
 -- | Tracks trial variable assignments and an arbitrary state
 -- of unbound 
 data PartialAssignment v e u =
   PartialAssignment {
+    opts :: SearchOptions,
+    -- ^ Options controlling the search.
     nextVar :: u -> NextVar v e u,
     -- ^ Gets the next trial variable, list of bindings, and
     -- reduced unbound variables, if possible.
@@ -161,9 +195,14 @@ data BoundVar v e u =
     -- pop this bound variable.
     }
              
-initial :: (u -> NextVar v e u) -> (v -> e -> u -> u) -> u -> PartialAssignment v e u
-initial nextF effectF initialUnboundVars =
+initial :: SearchOptions ->
+           (u -> NextVar v e u) ->
+           (v -> e -> u -> u) ->
+           u ->
+           PartialAssignment v e u
+initial opts nextF effectF initialUnboundVars =
   PartialAssignment {
+    opts = opts,
     effectOfBinding = effectF,
     nextVar = nextF,
     boundVars = [],
@@ -198,9 +237,10 @@ pushBinding v val remVals remUnboundVars p =
       unboundVars = effectOfBinding p v val remUnboundVars }
   where toPush = BoundVar { variable = v,
                             value = val,
-                            remainingValues = remVals,
+                            remainingValues = limit remVals,
                             remainingUnboundVars = remUnboundVars,
                             previousUnboundVars = unboundVars p }
+        limit = take (maxTrialsPerVariable (opts p) - 1)
     
 -- | Advances to the next trial variable binding. If the top bound
 -- variable has values we haven't tried, this changes the trial value
