@@ -7,12 +7,12 @@ import qualified BRC.FiniteSet as FS
 import BRC.Constraint (Constraint)
 
 import qualified SetOfTests as SoT
-import qualified ZeroOneTwoProps as ZOTP
+import qualified ZeroOneTwoTests as ZOTT
 import Variable
 
 main :: IO ()
 main = do SoT.runAll (arbitrary :: Gen Five) (arbitrary :: Gen (FS.Set Five))
-          ZOTP.runAll (arbitrary :: Gen (Constraint Variable Five))
+          ZOTT.runAll (arbitrary :: Gen (Constraint Variable Five))
 
 data Five = One | Two | Three | Four | Five deriving (Eq, Ord, Enum, Bounded, Show)
 

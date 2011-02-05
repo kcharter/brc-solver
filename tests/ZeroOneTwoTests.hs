@@ -1,4 +1,4 @@
-module ZeroOneTwoProps where
+module ZeroOneTwoTests where
 
 import Control.Monad (liftM, liftM2)
 import Data.List (sort)
