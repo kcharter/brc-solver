@@ -27,7 +27,6 @@ import Data.Graph.Inductive.Tree (Gr)
 import Data.Graph.Inductive.Query.DFS (scc)
 import qualified Data.Map as DM
 import qualified Data.IntMap as DIM
-import Data.Maybe (mapMaybe)
 import qualified Data.Set as DS
 
 import BRC.Solver.ZeroOneTwo
