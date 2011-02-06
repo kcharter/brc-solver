@@ -5,7 +5,7 @@ module AssignmentTests where
 import Control.Arrow (second)
 import Control.Monad (liftM, liftM2)
 import Data.Ord (comparing)
-import Data.List (foldl', nub, sortBy)
+import Data.List (foldl', nub, sortBy, sort)
 import qualified Data.Map as DM
 import qualified Data.Set as DS
 import Data.Maybe (mapMaybe, catMaybes)
@@ -17,7 +17,8 @@ import Variable
 
 runAll :: (Bounded a, Enum a, Ord a, Show a) => Gen a -> IO ()
 runAll g = mapM_ quickCheck [
-  forAll (assignment g) prop_findsUniqueSolutions
+  forAll (assignment g) prop_findsUniqueSolutions,
+  forAll (satisfiable g) prop_findsAllSolutions
   ]
 
 prop_findsUniqueSolutions :: (Bounded a, Enum a, Ord a, Show a) =>
@@ -27,12 +28,28 @@ prop_findsUniqueSolutions assignment =
       oneVarConstraints = oneVarLessThans assignment'
       solutions = allSolutions oneVarConstraints
   in length solutions == 1 && assignment' == head solutions
+
+prop_findsAllSolutions :: (Bounded a, Enum a, Ord a, Show a) =>
+                          [LTC a] -> Bool
+prop_findsAllSolutions constraints =
+  sort (bruteForce constraints) == sort (allSolutions constraints)
   
 -- | For a value generator, generates a pairing of variables with
 -- values. Each variable occurs at most once.
 assignment :: Gen a -> Gen [(Variable, a)]
 assignment val = (DM.toList . DM.fromList) `liftM` listOf binding
-                 where binding = liftM2 (,) arbitrary val 
+                 where binding = liftM2 (,) arbitrary val
+
+-- | For a value generator, generates an assignment and then derives a
+-- set of two-variable less-than constraints from the
+-- assignment. There is at least the original solution, so the
+-- constraints are satisfiable. This generator takes into account the
+-- size of the domain and avoids Cartesian products that have more
+-- than 100000 elements.
+satisfiable :: forall a .(Bounded a, Enum a, Ord a) => Gen a -> Gen [LTC a]
+satisfiable = liftM twoVarLessThans . resize limit . assignment
+  where limit = fromIntegral $ floor $ logBase domainSize 100000
+        domainSize = fromIntegral $ intervalWidth (minBound :: a) (maxBound :: a)
 
 -- | Computes all solutions of a set of contraints, ignoring
 -- constraints that contain no variables. The variable assignments are
@@ -42,7 +59,7 @@ allSolutions constraints =
   let predicates = toPredicates constraints
       domainSize = intervalWidth domainMin domainMax
       possibles  = zip allVars (repeat universe)
-      allVars    = DS.toList $ DS.fromList $ concatMap variables constraints
+      allVars    = allVariables constraints
       universe   = [domainMin .. domainMax]
       domainMin  = minBound :: e
       domainMax  = maxBound :: e
@@ -50,7 +67,35 @@ allSolutions constraints =
         defaultSearchOptions {
           maxTrialsPerVariable = domainSize }
   in map (sortBy (comparing fst)) (subjectTo opts predicates possibles)
-     
+
+-- | Computes all the solutions for a set of constraints by trying all
+-- possible assignments. Obviously, this can be very expensive, do
+-- don't do it on a big domain.
+bruteForce :: forall e . (Bounded e, Enum e, Ord e) => [LTC e] -> [[(Variable, e)]]
+bruteForce constraints = filter passesAll allAssignments
+  where allAssignments =
+          map (zip allVars) (product (length allVars) universe)
+        -- Note that 'sequence' is here in the list monad, so it
+        -- performs a Cartesian product
+        product n range = sequence $ replicate n range
+        universe = [(minBound :: e) .. (maxBound :: e)]
+        allVars = allVariables constraints
+        passesAll assignment =
+          all passes constraints
+            where passes (LTC a b) =
+                    case a of
+                      Left varA ->
+                        case b of
+                          Left varB  -> get varA < get varB
+                          Right valB -> get varA < valB
+                      Right valA ->
+                        case b of
+                          Left varB  -> valA < get varB
+                          Right valB -> valA < valB 
+                  get = (DM.!) bindings
+                  bindings = DM.fromList assignment
+
+        
 -- | Computes the size of the closed interval bounded by two domain
 -- values. This is useful for computing the size of a finite domain.
 intervalWidth :: (Bounded e, Enum e) => e -> e -> Int
@@ -138,6 +183,11 @@ accum what (Just sofar) = what:sofar
 -- ascending order of the value to which they are bound.
 groupEqualVars :: (Ord a) => [(Variable, a)] -> [[Variable]]
 groupEqualVars = map snd . varsByValue
+
+-- | Finds and sorts all the unique variables in a list of
+-- constraints.
+allVariables :: [LTC e] -> [Variable]
+allVariables = DS.toList . DS.fromList . concatMap variables
 
 -- | The unique variables appearing in a constraint.
 variables :: LTC e -> [Variable]
