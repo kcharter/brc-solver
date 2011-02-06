@@ -1,4 +1,4 @@
-module BRC.Solver (Relatee(..), Constraint(..), Binding(..), solve) where
+module BRC.Solver (Relatee(..), Constraint(..), solve) where
 
 import Control.Monad (unless, when, foldM)
 import Data.List (intercalate)
@@ -11,10 +11,8 @@ import BRC.Solver.Error
 import BRC.Solver.Monad
 import BRC.Solver.ZeroOneTwo
 
-data Binding v e = Binding { variable :: v, value :: e } deriving (Eq, Ord, Show)
-
 solve :: (Ord v, SetOf e s, Show v, Show e) =>
-         BinRel e s -> [Constraint v e] -> Either SolverError [[Binding v e]]
+         BinRel e s -> [Constraint v e] -> Either SolverError [[(v,e)]]
 solve rel constraints =
   runOn constraints $ do
     ruleOutZeroVarContradictions rel
@@ -54,7 +52,7 @@ applyOneVarConstraints rel =
                     maybe [] reverse (DM.lookup v history)
                   showConstraints = intercalate ", " . map (show . toConstraint)
 
-enumerateAssignments :: SetOf e s => BinRel e s -> SolverMonad v e s [[Binding v e]]
+enumerateAssignments :: SetOf e s => BinRel e s -> SolverMonad v e s [[(v,e)]]
 enumerateAssignments rel = return [] -- TODO: really implement
 
 -- internal state/error monad for the solver (so we can return an error message)
