@@ -110,9 +110,10 @@ subjectTo opts conditions unbounds = assignments opts nextVar filterOthers unbou
         nextVar unbounds@((v, es):rest) =
           if any (null . limit) $ map snd unbounds
           then DeadEnd
-          else if null (filterSelf v es)
-               then DeadEnd
-               else NextVar v (head es) (tail es) rest
+          else let es' = filterSelf v es
+               in if null es'
+                  then DeadEnd
+                  else NextVar v (head es') (tail es') rest
         filterOthers v e =
           let doFilter (w, es) =
                 let f1 = maybe pass ($e) $ pred (v,w)
