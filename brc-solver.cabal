@@ -13,6 +13,7 @@ library
                    BRC.Constraint,
                    BRC.FiniteSet,
                    BRC.SetOf,
+                   BRC.Size,
                    BRC.Solver,
                    BRC.Solver.Assignments,
                    BRC.Solver.Error,

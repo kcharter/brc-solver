@@ -6,13 +6,15 @@ import Test.QuickCheck
 import qualified BRC.FiniteSet as FS
 import BRC.Constraint (Constraint)
 
+import qualified SizeTests as ST
 import qualified SetOfTests as SoT
 import qualified ZeroOneTwoTests as ZOTT
 import qualified AssignmentTests as AT
 import Variable
 
 main :: IO ()
-main = do SoT.runAll (arbitrary :: Gen Five) (arbitrary :: Gen (FS.Set Five))
+main = do ST.runAll
+          SoT.runAll (arbitrary :: Gen Five) (arbitrary :: Gen (FS.Set Five))
           ZOTT.runAll (arbitrary :: Gen (Constraint Variable Five))
           AT.runAll (arbitrary :: Gen Five)
 
