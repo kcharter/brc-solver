@@ -4,6 +4,7 @@ module BRC.FiniteSet (Set, fromList) where
 
 import qualified Data.Set as DS
 
+import BRC.Size (finite)
 import BRC.SetOf
 
 newtype Set a = Set (DS.Set a) deriving (Eq, Ord, Show)
@@ -19,4 +20,5 @@ instance (Bounded a, Ord a, Enum a) => SetOf a (Set a) where
   intersection (Set s) (Set t) = Set (DS.intersection s t)
   union (Set s) (Set t) = Set (DS.union s t)
   sameAs = (==)
+  size (Set s) = finite (DS.size s)
   

@@ -2,6 +2,10 @@
 
 module BRC.SetOf where
 
+import Prelude hiding (isInfinite)
+
+import BRC.Size
+
 class SetOf e s | s -> e where
   univ :: s
   -- ^ The universe.
@@ -18,3 +22,14 @@ class SetOf e s | s -> e where
   sameAs :: s -> s -> Bool
   -- ^ An equality test. For instances for which 'Eq s', this will
   -- probably be '(==)'. We don't require it, however.
+  size :: s -> Size
+  -- ^ The size of the set. Note the following constraints:
+  --
+  -- * @isZero (size empty)@
+  --
+  -- * @size empty <= size univ@
+  --
+  -- * @size x <= size (x `intersection` y)@
+  --
+  -- * @isFinite (size x)@ implies that @elements x@ is a finite list
+  -- whose length is the element count of @size x@.

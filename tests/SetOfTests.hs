@@ -6,6 +6,7 @@ import Control.Monad (liftM2)
 import Test.QuickCheck hiding (elements)
 
 import BRC.SetOf
+import BRC.Size
 
 runAll :: forall e . forall s . (Show e, Show s, Eq e, SetOf e s) => Gen e -> Gen s -> IO ()
 runAll ge gs =
@@ -23,7 +24,11 @@ runAll ge gs =
                     allS3 prop_distributivity,
                     allS prop_sameAsReflexive,
                     allS2 prop_sameAsSymmetric,
-                    allS3 prop_sameAsTransitive]
+                    allS3 prop_sameAsTransitive,
+                    allS prop_univIsBiggest,
+                    allS prop_emptyHasSizeZero,
+                    allS2 prop_intersectionNoLarger,
+                    allS prop_elementCount]
     where allE = forAll ge
           allS = forAll gs
           allS2 = forAll gs2 . uncurry
@@ -75,11 +80,29 @@ prop_sameAsReflexive x = x `sameAs` x
 prop_sameAsTransitive :: SetOf e s => s -> s -> s -> Bool
 prop_sameAsTransitive x y z =
   ((x `sameAs` y) && (y `sameAs` z)) `implies` (x `sameAs` z)
-  where x `implies` y = not x || y
+  
+prop_univIsBiggest :: forall e s . SetOf e s => s -> Bool
+prop_univIsBiggest s = size s <= size (univ :: s)
 
+prop_emptyHasSizeZero :: SetOf e s => s -> Bool
+prop_emptyHasSizeZero s = (s `sameAs` empty) == (isZero (size s))
+
+prop_intersectionNoLarger :: SetOf e s => s -> s -> Bool
+prop_intersectionNoLarger x y =
+  let i = size (x `intersection` y)
+  in i <= size x && i <= size y
+     
+prop_elementCount :: SetOf e s => s -> Bool
+prop_elementCount x =
+  let i = size x
+  in isFinite i `implies` maybe False (== length (elements x)) (maybeCount i)
 
 prop_commutative :: SetOf e s => (s -> s -> s) -> s -> s -> Bool
 prop_commutative op x y = (x `op` y) `sameAs` (y `op` x)
 
 prop_associative :: SetOf e s => (s -> s -> s) -> s -> s -> s -> Bool
 prop_associative op x y z = ((x `op` y) `op` z) `sameAs` (x `op` (y `op` z))
+
+implies :: Bool -> Bool -> Bool
+x `implies` y = not x || y
+
