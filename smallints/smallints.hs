@@ -44,11 +44,7 @@ parseAndSolve fileName =
               formatArg (Constant n) = show n
               printAssignments as =
                 if null as then putStrLn "No variables to bind." else mapM_ printAssignment as
-              printAssignment a =
-                do putStrLn "Assignment:"
-                   mapM_ printBinding a
-              printBinding (v,x) =
-                do putStr v
-                   putStr " -> "
-                   print x
+              printAssignment = putStrLn . formatAssignment
+              formatAssignment bs = "{ " ++ intercalate ", " (map formatBinding bs) ++ " }"
+              formatBinding (v,x) = v ++ "=" ++ show x
           in either print printAssignments errOrResult
