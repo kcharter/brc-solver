@@ -5,7 +5,7 @@
 The internal state maintained by the solver. -}
 
 module BRC.Solver.State (SolverState,
-                         options, zeros, ones, twos, setsByVar,
+                         options, rel, zeros, ones, twos, setsByVar,
                          initialState,
                          getSetFor,
                          putSetFor,
@@ -13,6 +13,7 @@ module BRC.Solver.State (SolverState,
 
 import qualified Data.Map as DM
 
+import BRC.BinRel
 import BRC.Constraint
 import BRC.SetOf
 import BRC.Solver.Options
@@ -21,6 +22,8 @@ import BRC.Solver.ZeroOneTwo
 data SolverState v e s =
   SolverState { options:: SolverOptions v e s,
                 -- ^ The current options for this run of the solver.
+                rel :: BinRel e s,
+                -- ^ The relation to use when interpreting the constraints.
                 zeros :: [ZeroVar v e],
                 -- ^ The set of zero-variable contraints.
                 ones :: [OneVar v e],
@@ -35,10 +38,14 @@ data SolverState v e s =
 -- transforms the input constraints into zero-variable, one-variable,
 -- and two-variable constraints, and assumes all variable assignments
 -- are possible.
-initialState :: (Ord v) => SolverOptions v e s -> [Constraint v e] -> SolverState v e s
-initialState opts constraints =
+initialState :: (Ord v) =>
+                SolverOptions v e s ->
+                BinRel e s ->
+                [Constraint v e] -> SolverState v e s
+initialState opts rel constraints =
   let (z,o,t) = toZeroOneTwo constraints
   in SolverState { options = opts,
+                   rel = rel,
                    zeros = z,
                    ones = o,
                    twos = t,

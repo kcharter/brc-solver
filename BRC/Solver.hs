@@ -1,20 +1,28 @@
+{-# LANGUAGE TupleSections #-}
+
 module BRC.Solver (Relatee(..), Constraint(..), solve) where
 
 import Control.Monad (unless, when, foldM)
+import Data.List (foldl')
 import qualified Data.Map as DM
 
 import BRC.BinRel
 import BRC.Constraint
 import BRC.SetOf
+import BRC.Size
+import qualified BRC.Solver.Assignments as A
 import BRC.Solver.Error
+import BRC.Solver.Influence
 import BRC.Solver.Monad
 import BRC.Solver.Options (SolverOptions)
+import BRC.Solver.VariablesIn
+import BRC.Solver.Util (mapByFirst)
 import BRC.Solver.ZeroOneTwo
 
-solve :: (Ord v, SetOf e s) =>
+solve :: (Ord v, Ord e, SetOf e s) =>
          SolverOptions v e s -> BinRel e s -> [Constraint v e] -> Either SolverError [[(v,e)]]
 solve options rel constraints =
-  runOn options constraints $ do
+  runOn options rel constraints $ do
     ruleOutZeroVarContradictions rel
     applyOneVarConstraints rel
     enumerateAssignments rel
@@ -50,14 +58,85 @@ applyOneVarConstraints rel =
                   constraintsSoFar v history =
                     maybe [] reverse (DM.lookup v history)
 
-enumerateAssignments :: SetOf e s => BinRel e s -> SolverMonad v e s [[(v,e)]]
-enumerateAssignments rel = return [] -- TODO: really implement
+enumerateAssignments :: (Ord v, Ord e, SetOf e s) => BinRel e s -> SolverMonad v e s [[(v,e)]]
+enumerateAssignments rel = do
+  vars1 <- fmap variablesIn getOnes
+  twos <- getTwos
+  maxTrialsPerVar <- getMaxTrialsPerVariable
+  byVar <- getPossibleAssignmentsByVariable
+  binRel <- getBinRel
+  let classes = influenceClasses vars1 twos
+      classSolver = solveClass maxTrialsPerVar binRel byVar twos
+  return (map concat $ sequence $ map classSolver classes)
+            
+solveClass :: (Ord v, SetOf e s) => Int -> BinRel e s -> DM.Map v s -> [TwoVar v e] -> [v] -> [[(v,e)]]
+solveClass maxTrialsPerVar binRel byVar twos classVars =
+  case classVars of
+    [] -> error "Shouldn't be able to get an empty influence class."
+    [v] -> map ((:[]).(v,)) $ elements $ maybe univ id $ DM.lookup v byVar
+    _ -> A.assignments options nextVar effects unbounds
+      where options = A.defaultSearchOptions {
+              A.maxTrialsPerVariable = maxTrialsPerVar
+              }
+            unbounds = initialUnbounds binRel byVar twos
+            
+data Unbounds v e s = Unbounds {
+  binRel :: BinRel e s,
+  constraintsByVar :: DM.Map v [TwoVar v e],
+  setsByVar :: DM.Map v s
+  }
 
--- internal state/error monad for the solver (so we can return an error message)
--- split constraints into three simpler constraint types: zero-variable, one-variable, two-variable
--- solve ins three passes:
--- 1. make sure there are no contradictions in zero-variable constraints
--- 2. build up a mapping of variables to sets using the single-variable constraints
--- 3. lazily enumerate Cartesian product, filtered using two-variable constraints
---    - stack to allow back-tracking?
+initialUnbounds :: (Ord v) => BinRel e s -> (DM.Map v s) -> [TwoVar v e] -> Unbounds v e s
+initialUnbounds rel setsByVar twos = Unbounds {
+  binRel = rel,
+  constraintsByVar = mapByFirst $ concatMap (\c -> map (,c) $ variablesIn c) twos,
+  setsByVar = setsByVar
+  }
+
+nextVar :: (SetOf e s) => Unbounds v e s -> A.NextVar v e (Unbounds v e s)
+nextVar u =
+  if noMoreVars u
+  then A.Done
+  else if anyEmptySets u
+       then A.DeadEnd
+       else let (v, s, u') = splitVarToBind u
+                es = elements s
+            in A.NextVar v (head es) (tail es) u'
+
+noMoreVars :: Unbounds v e s -> Bool
+noMoreVars = (0==) . DM.size . setsByVar
+
+anyEmptySets :: (SetOf e s) => Unbounds v e s -> Bool
+anyEmptySets = any (isZero . size . snd) . DM.toList . setsByVar
+
+splitVarToBind :: Unbounds v e s -> (v, s, Unbounds v e s)
+splitVarToBind u =
+  (v, s, u {
+      setsByVar = remaining
+      })
+  where ((v, s), remaining) = DM.deleteFindMin $ setsByVar u
+
+effects :: (Ord v, SetOf e s) => v -> e -> Unbounds v e s -> Unbounds v e s
+effects v x u =
+  u {
+    setsByVar = DM.mapWithKey effectOn (setsByVar u)
+    }
+  where effectOn w s =
+          effectOfConstraints (binRel u) v x s $ lookupConstraints v w u
+  
+lookupConstraints :: (Ord v) => v -> v -> Unbounds v e s -> [TwoVar v e]
+lookupConstraints v w u =
+  maybe [] (filter (involves w)) $ DM.lookup v (constraintsByVar u)
+  where involves w = elem w . variablesIn
+
+effectOfConstraints :: (Eq v, SetOf e s) => BinRel e s -> v -> e -> s -> [TwoVar v e] -> s
+effectOfConstraints rel v x s =
+  foldl' (effectOfConstraint rel v x) s
+  
+effectOfConstraint :: (Eq v, SetOf e s) => BinRel e s -> v -> e -> s -> TwoVar v e -> s
+effectOfConstraint rel v x s c =
+  case c of
+    TwoVar w z | w == v -> s `intersection` rightOf rel x
+               | z == v -> s `intersection` leftOf rel x
+               | otherwise -> s
 

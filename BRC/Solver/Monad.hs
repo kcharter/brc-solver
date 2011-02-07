@@ -14,9 +14,11 @@ module BRC.Solver.Monad (SolverMonad,
                          formatSet,
                          formatConstraint,
                          formatConstraints,
+                         getBinRel,
                          getZeros,
                          getOnes,
                          getTwos,
+                         getPossibleAssignmentsByVariable,
                          getPossibleAssignmentsFor,
                          modifyPossibleAssignmentsFor) where
 
@@ -24,7 +26,9 @@ import Control.Monad (liftM)
 import Control.Monad.Error (MonadError, ErrorT, runErrorT)
 import Control.Monad.State (MonadState, State, get, modify, evalState)
 import Data.List (intercalate)
+import qualified Data.Map as DM
 
+import BRC.BinRel
 import BRC.Constraint
 import BRC.SetOf
 import BRC.Solver.Error
@@ -40,8 +44,13 @@ newtype SolverMonad v e s a =
 -- | Runs a computation in a solver monad, using the initial state
 -- computed from a list of input constraints. The result is either a
 -- solver error or the intended result of the computation.
-runOn :: (Ord v) => SolverOptions v e s -> [Constraint v e] -> SolverMonad v e s a -> Either SolverError a
-runOn options constraints m = evalState (runErrorT (runSolver m)) (initialState options constraints)
+runOn :: (Ord v) =>
+         SolverOptions v e s ->
+         BinRel e s ->
+         [Constraint v e] ->
+         SolverMonad v e s a -> Either SolverError a
+runOn options rel constraints m =
+  evalState (runErrorT (runSolver m)) (initialState options rel constraints)
            
 getSolverOptions :: SolverMonad v e s (SolverOptions v e s)
 getSolverOptions = options `liftM` get
@@ -64,6 +73,10 @@ formatConstraint c = fmap (($ toConstraint c) . Opt.formatConstraint) getSolverO
 formatConstraints :: (ToConstraint v e p) => [p] -> SolverMonad v e s String
 formatConstraints = fmap (intercalate ", ") . mapM formatConstraint
 
+-- | Gets the binary relation used to interpret the constraints.
+getBinRel :: SolverMonad v e s (BinRel e s)
+getBinRel = rel `liftM` get
+
 -- | Gets the list of zero-variable constraints derived from the input
 -- constraints.
 getZeros :: SolverMonad v e s [ZeroVar v e]
@@ -78,6 +91,12 @@ getOnes = ones `liftM` get
 -- constraints.
 getTwos :: SolverMonad v e s [TwoVar v e]
 getTwos = twos `liftM` get
+
+-- | Gets a map from variables to sets of possible assignments. This
+-- may be missing entries for some variables, in which case the
+-- variables are unconstrained.
+getPossibleAssignmentsByVariable :: SolverMonad v e s (DM.Map v s)
+getPossibleAssignmentsByVariable = fmap setsByVar get
 
 -- | Gets the current set of possible assignments for a variable. If
 -- the variable is unconstrained, the set will be 'univ'.
