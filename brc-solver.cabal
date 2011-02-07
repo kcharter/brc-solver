@@ -19,6 +19,7 @@ library
                    BRC.Solver.Error,
                    BRC.Solver.Influence,
                    BRC.Solver.Monad,
+                   BRC.Solver.Options,
                    BRC.Solver.State,
                    BRC.Solver.ZeroOneTwo
   build-depends:   base >= 4 && < 5,

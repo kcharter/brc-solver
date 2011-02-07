@@ -2,7 +2,12 @@ module Main where
 
 import System.Environment (getArgs, getProgName)
 
+import Data.List (intercalate)
+
+import BRC.Constraint
+import BRC.SetOf (elements)
 import BRC.Solver
+import BRC.Solver.Options
 
 import ConstraintParser
 import SmallIntConstraints
@@ -27,15 +32,23 @@ parseAndSolve fileName =
      either putStrLn solveAndPrint =<< parseConstraintFile fileName
   where solveAndPrint constraints =
           let constraints' = concatMap toBRCConstraints constraints
-              errOrResult = solve lteRel constraints'
+              errOrResult = solve options lteRel constraints'
+              options = defaultOptions {
+                formatVariable = id,
+                formatValue = show,
+                formatSet = \s -> "{" ++ intercalate "," (map show (elements s)) ++ "}", 
+                formatConstraint =
+                  (\(Related a b) -> formatArg a ++ " < " ++ formatArg b)
+                }
+              formatArg (Variable v) = v
+              formatArg (Constant n) = show n
               printAssignments as =
                 if null as then putStrLn "No variables to bind." else mapM_ printAssignment as
               printAssignment a =
                 do putStrLn "Assignment:"
                    mapM_ printBinding a
-              printBinding b =
-                do putStr (variable b)
+              printBinding (v,x) =
+                do putStr v
                    putStr " -> "
-                   print (value b)
+                   print x
           in either print printAssignments errOrResult
-

@@ -8,6 +8,12 @@ constraints and the sets of possible bindings for each variable. -}
 
 module BRC.Solver.Monad (SolverMonad,
                          runOn,
+                         getMaxTrialsPerVariable,
+                         formatVariable,
+                         formatValue,
+                         formatSet,
+                         formatConstraint,
+                         formatConstraints,
                          getZeros,
                          getOnes,
                          getTwos,
@@ -17,11 +23,14 @@ module BRC.Solver.Monad (SolverMonad,
 import Control.Monad (liftM)
 import Control.Monad.Error (MonadError, ErrorT, runErrorT)
 import Control.Monad.State (MonadState, State, get, modify, evalState)
+import Data.List (intercalate)
 
 import BRC.Constraint
 import BRC.SetOf
 import BRC.Solver.Error
-import BRC.Solver.ZeroOneTwo (ZeroVar, OneVar, TwoVar)
+import BRC.Solver.Options (SolverOptions)
+import qualified BRC.Solver.Options as Opt
+import BRC.Solver.ZeroOneTwo (ZeroVar, OneVar, TwoVar, ToConstraint(..))
 import BRC.Solver.State
 
 newtype SolverMonad v e s a =
@@ -31,9 +40,30 @@ newtype SolverMonad v e s a =
 -- | Runs a computation in a solver monad, using the initial state
 -- computed from a list of input constraints. The result is either a
 -- solver error or the intended result of the computation.
-runOn :: (Ord v) => [Constraint v e] -> SolverMonad v e s a -> Either SolverError a
-runOn constraints m = evalState (runErrorT (runSolver m)) (initialState constraints)
+runOn :: (Ord v) => SolverOptions v e s -> [Constraint v e] -> SolverMonad v e s a -> Either SolverError a
+runOn options constraints m = evalState (runErrorT (runSolver m)) (initialState options constraints)
            
+getSolverOptions :: SolverMonad v e s (SolverOptions v e s)
+getSolverOptions = options `liftM` get
+
+getMaxTrialsPerVariable :: SolverMonad v e s Int
+getMaxTrialsPerVariable = fmap Opt.maxTrialsPerVariable getSolverOptions
+
+formatVariable :: v -> SolverMonad v e s String
+formatVariable var = fmap (($var) . Opt.formatVariable) getSolverOptions
+
+formatValue :: e -> SolverMonad v e s String
+formatValue val = fmap (($val) . Opt.formatValue) getSolverOptions
+
+formatSet :: s -> SolverMonad v e s String
+formatSet set = fmap (($set) . Opt.formatSet) getSolverOptions
+
+formatConstraint :: (ToConstraint v e p) => p -> SolverMonad v e s String
+formatConstraint c = fmap (($ toConstraint c) . Opt.formatConstraint) getSolverOptions
+
+formatConstraints :: (ToConstraint v e p) => [p] -> SolverMonad v e s String
+formatConstraints = fmap (intercalate ", ") . mapM formatConstraint
+
 -- | Gets the list of zero-variable constraints derived from the input
 -- constraints.
 getZeros :: SolverMonad v e s [ZeroVar v e]
