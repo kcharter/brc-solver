@@ -12,6 +12,7 @@ import Data.Maybe (mapMaybe, catMaybes)
 import Test.QuickCheck
 
 import BRC.Solver.Assignments (subjectTo, defaultSearchOptions, maxTrialsPerVariable)
+import BRC.Solver.Util (byFirst, bySecond)
 
 import Variable
 
@@ -159,26 +160,6 @@ twoVarLessThans bindings =
 varsByValue :: (Ord a) => [(Variable, a)] -> [(a, [Variable])]
 varsByValue = bySecond
 
--- | Given a list of pairs, returns a list pairing unique first values
--- with lists of corresponding second values.
-byFirst :: (Ord f) => [(f, s)] -> [(f, [s])]
-byFirst = DM.toList . foldl' accumByFirst DM.empty
-  where accumByFirst m (first,second) =
-          DM.alter (Just . accum second) first m
-
--- | Given a list of pairs, returns a list pairing unique second values
--- with lists of corresponding first values.
-bySecond :: (Ord s) => [(f, s)] -> [(s, [f])]
-bySecond = DM.toList . foldl' accumBySecond DM.empty
-  where accumBySecond m (first,second) =
-          DM.alter (Just . accum first) second m
-                
--- | Either starts a list where none existed before, or prepends to an
--- existing one. Intended for use with 'Data.Map.alter'.
-accum :: a -> Maybe [a] -> [a]
-accum what Nothing = [what]
-accum what (Just sofar) = what:sofar
-                
 -- | For a list of bindings, the lists of equal variables, in
 -- ascending order of the value to which they are bound.
 groupEqualVars :: (Ord a) => [(Variable, a)] -> [[Variable]]
