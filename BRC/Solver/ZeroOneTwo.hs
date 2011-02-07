@@ -5,7 +5,8 @@ module BRC.Solver.ZeroOneTwo where
 import Data.List (foldl')
 
 import BRC.Constraint
-       
+import BRC.Solver.VariablesIn       
+
 -- | An internal constraint with no variables, just constants.
 data ZeroVar v e = ZeroVar e e;
 
@@ -55,3 +56,14 @@ instance ToConstraint v e (OneVar v e) where
 
 instance ToConstraint v e (TwoVar v e) where
   toConstraint (TwoVar v w) = Related (Variable v) (Variable w)
+
+instance VariablesIn v (ZeroVar v e) where
+  variablesIn _ = []
+  
+instance VariablesIn v (OneVar v e) where
+  variablesIn (OnLeft v _) = [v]
+  variablesIn (OnRight _ v) = [v]
+  
+instance (Eq v) => VariablesIn v (TwoVar v e) where
+  variablesIn (TwoVar v w) = if v == w then [v] else [v,w]
+

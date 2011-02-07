@@ -27,21 +27,21 @@ import Data.Graph.Inductive.Tree (Gr)
 import Data.Graph.Inductive.Query.DFS (scc)
 import qualified Data.Map as DM
 import qualified Data.IntMap as DIM
-import qualified Data.Set as DS
 
+import BRC.Solver.VariablesIn
 import BRC.Solver.ZeroOneTwo
 
 -- | For a list of two-variable constraints, the equivalence classes
 -- of the /influences/ relation.
-influenceClasses :: (Ord v) => [TwoVar v e] -> [[v]]
-influenceClasses twoVars =
+influenceClasses :: (Ord v) => [v] -> [TwoVar v e] -> [[v]]
+influenceClasses extraVars twoVars =
   -- It's sufficient to build the 'constrains' graph and find its
   -- connected components.
   map (map nodeToVar) $ scc g 
-    where (g, nodeToVar) = constraintGraph twoVars
+    where (g, nodeToVar) = constraintGraph extraVars twoVars
         
-constraintGraph :: (Ord v) => [TwoVar v e] -> (Gr v (), G.Node -> v)
-constraintGraph twos = (G.mkGraph lnodes edges, nodeToVar)
+constraintGraph :: (Ord v) => [v] -> [TwoVar v e] -> (Gr v (), G.Node -> v)
+constraintGraph vars twos = (G.mkGraph lnodes edges, nodeToVar)
   where lnodes = mkLNodes variables
         varToNode = nodeByVar lnodes
         nodeToVar = varByNode lnodes
@@ -51,7 +51,7 @@ constraintGraph twos = (G.mkGraph lnodes edges, nodeToVar)
                                         in [(nv,nw,()), (nw,nv,())]
                              | otherwise = let nv = varToNode v
                                            in [(nv,nv,())]
-        variables = uniqueVars twos
+        variables = unique (vars ++ variablesIn twos)
 
 nodeByVar :: (Ord v) => [G.LNode v] -> v -> G.Node
 nodeByVar lnodes = (DM.!) m
@@ -66,8 +66,3 @@ mkLNodes :: [v] -> [G.LNode v]
 mkLNodes = zipWith mkNode [1..]
   where mkNode n v = (n, v)
 
-uniqueVars :: (Ord v) => [TwoVar v e] -> [v]
-uniqueVars = DS.toList . DS.fromList . concatMap vars
-
-vars :: TwoVar v e -> [v]
-vars (TwoVar v w) = [v,w]
