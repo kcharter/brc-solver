@@ -30,12 +30,10 @@ lteRel = BinRel { contains = (<=),
                   leftOf   = lteLeftOf,
                   rightOf  = lteRightOf }
          
--- | @lteLeftOf x@ is the set of @y@ such that @y <= x@, and so
--- includes @x@.
+-- | @lteLeftOf x@ is the set of @y@ such that @y <= x@.
 lteLeftOf x =
   if x == minBound then empty else FS.fromList [minBound .. x]
 
--- | @lteRightOf x@ is the set of @y@ such that @x <= y@, and so does
--- not include @x@.
+-- | @lteRightOf x@ is the set of @y@ such that @x <= y@.
 lteRightOf x =
-  if x == maxBound then empty else FS.fromList [succ x .. maxBound]
+  if x == maxBound then empty else FS.fromList [x .. maxBound]
