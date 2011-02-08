@@ -67,18 +67,21 @@ enumerateAssignments rel = do
   binRel <- getBinRel
   let classes = influenceClasses vars1 twos
       classSolver = solveClass maxTrialsPerVar binRel byVar twos
-  return (map concat $ sequence $ map classSolver classes)
+  return $ map concat $ sequence $ map classSolver classes
             
 solveClass :: (Ord v, SetOf e s) => Int -> BinRel e s -> DM.Map v s -> [TwoVar v e] -> [v] -> [[(v,e)]]
-solveClass maxTrialsPerVar binRel byVar twos classVars =
+solveClass maxTrialsPerVar binRel setsByVar twos classVars =
   case classVars of
     [] -> error "Shouldn't be able to get an empty influence class."
-    [v] -> map ((:[]).(v,)) $ elements $ maybe univ id $ DM.lookup v byVar
+    [v] -> map ((:[]).(v,)) $ elements $ setForVar v
     _ -> A.assignments options nextVar effects unbounds
       where options = A.defaultSearchOptions {
               A.maxTrialsPerVariable = maxTrialsPerVar
               }
-            unbounds = initialUnbounds binRel byVar twos
+            unbounds = initialUnbounds binRel setsByClassVar twos
+    where
+      setsByClassVar = DM.fromList $ zip classVars $ map setForVar classVars
+      setForVar v = maybe univ id (DM.lookup v setsByVar)
             
 data Unbounds v e s = Unbounds {
   binRel :: BinRel e s,
